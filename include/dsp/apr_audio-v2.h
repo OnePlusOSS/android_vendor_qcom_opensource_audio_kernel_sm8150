@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3941,11 +3941,13 @@ struct aptx_channel_mode_param_t {
  */
 #define AFE_SB_DATA_FORMAT_GENERIC_COMPRESSED    0x3
 
+
 /*
  * Parameter to send frame control size
  * to DSP for AAC encoder in AFE.
  */
 #define AFE_PARAM_ID_AAC_FRM_SIZE_CONTROL 0x000132EA
+
 
 /*
  * ID for AFE port module. This will be used to define port properties.
@@ -4122,10 +4124,11 @@ struct asm_aac_frame_size_control_t {
 	/* Type of frame size control: MTU_SIZE / PEAK_BIT_RATE*/
 	uint32_t ctl_type;
 	/*
-	 * Control value
-	 * MTU_SIZE: MTU size in bytes
-	 * PEAK_BIT_RATE: Peak bitrate in bits per second.
-	 */
+        * Control value
+        * MTU_SIZE: MTU size in bytes
+        * PEAK_BIT_RATE: Peak bitrate in bits per second.
+    */
+
 	uint32_t ctl_value;
 } __packed;
 
@@ -5466,13 +5469,8 @@ struct asm_softvolume_params {
 /* Left side direct channel. */
 #define PCM_CHANNEL_LSD  33
 
-/* Right side direct channel. Update PCM_MAX_CHMAP_ID when
- * this list is extended.
- */
+/* Right side direct channel. */
 #define PCM_CHANNEL_RSD  34
-
-/* Max valid channel map index */
-#define PCM_MAX_CHMAP_ID PCM_CHANNEL_RSD
 
 #define PCM_FORMAT_MAX_NUM_CHANNEL  8
 #define PCM_FORMAT_MAX_CHANNELS_9   9

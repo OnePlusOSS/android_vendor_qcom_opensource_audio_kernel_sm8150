@@ -102,7 +102,6 @@ struct lpi_gpio_state {
 	struct gpio_chip chip;
 	char __iomem	*base;
 	struct clk *lpass_core_hw_vote;
-	bool core_hw_vote_status;
 };
 
 static const char *const lpi_gpio_groups[] = {
@@ -646,7 +645,6 @@ static int lpi_pinctrl_probe(struct platform_device *pdev)
 		dev_dbg(dev, "%s: unable to get core clk handle %d\n",
 			__func__, ret);
 
-	state->core_hw_vote_status = false;
 	pm_runtime_set_autosuspend_delay(&pdev->dev, LPI_AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
@@ -697,8 +695,6 @@ static int lpi_pinctrl_runtime_resume(struct device *dev)
 	if (ret < 0)
 		dev_err(dev, "%s: lpass core hw enable failed\n",
 			__func__);
-	else
-		state->core_hw_vote_status = true;
 
 	pm_runtime_set_autosuspend_delay(dev, LPI_AUTO_SUSPEND_DELAY);
 	return 0;
@@ -716,51 +712,11 @@ static int lpi_pinctrl_runtime_suspend(struct device *dev)
 		return 0;
 	}
 
-	if (state->core_hw_vote_status) {
-		clk_disable_unprepare(state->lpass_core_hw_vote);
-		state->core_hw_vote_status = false;
-	}
-	return 0;
-}
-
-int lpi_pinctrl_suspend(struct device *dev)
-{
-	int ret = 0;
-
-	dev_dbg(dev, "%s: system suspend\n", __func__);
-
-	if ((!pm_runtime_enabled(dev) || !pm_runtime_suspended(dev))) {
-		ret = lpi_pinctrl_runtime_suspend(dev);
-		if (!ret) {
-			/*
-			 * Synchronize runtime-pm and system-pm states:
-			 * At this point, we are already suspended. If
-			 * runtime-pm still thinks its active, then
-			 * make sure its status is in sync with HW
-			 * status. The three below calls let the
-			 * runtime-pm know that we are suspended
-			 * already without re-invoking the suspend
-			 * callback
-			 */
-			pm_runtime_disable(dev);
-			pm_runtime_set_suspended(dev);
-			pm_runtime_enable(dev);
-		}
-	}
-
-	return ret;
-}
-
-int lpi_pinctrl_resume(struct device *dev)
-{
+	clk_disable_unprepare(state->lpass_core_hw_vote);
 	return 0;
 }
 
 static const struct dev_pm_ops lpi_pinctrl_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(
-		lpi_pinctrl_suspend,
-		lpi_pinctrl_resume
-	)
 	SET_RUNTIME_PM_OPS(
 		lpi_pinctrl_runtime_suspend,
 		lpi_pinctrl_runtime_resume,

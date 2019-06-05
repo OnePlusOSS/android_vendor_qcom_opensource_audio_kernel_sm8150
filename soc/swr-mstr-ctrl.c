@@ -254,7 +254,7 @@ static int swrm_clk_request(struct swr_mstr_ctrl *swrm, bool enable)
 		if (swrm->clk_ref_count == 1) {
 			ret = swrm->clk(swrm->handle, true);
 			if (ret) {
-				dev_err_ratelimited(swrm->dev,
+				dev_err(swrm->dev,
 					"%s: clock enable req failed",
 					__func__);
 				--swrm->clk_ref_count;
@@ -1299,8 +1299,6 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 
 	mutex_lock(&swrm->reslock);
 	if (swrm_clk_request(swrm, true)) {
-		dev_err_ratelimited(swrm->dev, "%s:clk request failed\n",
-				__func__);
 		mutex_unlock(&swrm->reslock);
 		goto exit;
 	}
@@ -1337,7 +1335,6 @@ handle_irq:
 					continue;
 				if (swr_dev->slave_irq) {
 					do {
-						swr_dev->slave_irq_pending = 0;
 						handle_nested_irq(
 							irq_find_mapping(
 							swr_dev->slave_irq, 0));
@@ -1888,7 +1885,6 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->slave_status = 0;
 	swrm->num_rx_chs = 0;
 	swrm->clk_ref_count = 0;
-	swrm->swr_irq_wakeup_capable = 0;
 	swrm->mclk_freq = MCLK_FREQ;
 	swrm->dev_up = true;
 	swrm->state = SWR_MSTR_UP;
@@ -1941,15 +1937,7 @@ static int swrm_probe(struct platform_device *pdev)
 		}
 
 	}
-	/* Make inband tx interrupts as wakeup capable for slave irq */
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "qcom,swr-mstr-irq-wakeup-capable",
-				   &swrm->swr_irq_wakeup_capable);
-	if (ret)
-		dev_dbg(swrm->dev, "%s: swrm irq wakeup capable not defined\n",
-			__func__);
-	if (swrm->swr_irq_wakeup_capable)
-		irq_set_irq_wake(swrm->irq, 1);
+
 	ret = swr_register_master(&swrm->master);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: error adding swr master\n", __func__);
@@ -1994,13 +1982,6 @@ static int swrm_probe(struct platform_device *pdev)
 				   (void *) "swrm_reg_dump",
 				   &swrm_debug_ops);
 	}
-
-	ret = device_init_wakeup(swrm->dev, true);
-	if (ret) {
-		dev_err(swrm->dev, "Device wakeup init failed: %d\n", ret);
-		goto err_irq_wakeup_fail;
-	}
-
 	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
@@ -2012,8 +1993,6 @@ static int swrm_probe(struct platform_device *pdev)
 	msm_aud_evt_register_client(&swrm->event_notifier);
 
 	return 0;
-err_irq_wakeup_fail:
-	device_init_wakeup(swrm->dev, false);
 err_mstr_fail:
 	if (swrm->reg_irq)
 		swrm->reg_irq(swrm->handle, swr_mstr_interrupt,
@@ -2045,14 +2024,11 @@ static int swrm_remove(struct platform_device *pdev)
 		free_irq(swrm->irq, swrm);
 	else if (swrm->wake_irq > 0)
 		free_irq(swrm->wake_irq, swrm);
-	if (swrm->swr_irq_wakeup_capable)
-		irq_set_irq_wake(swrm->irq, 0);
 	cancel_work_sync(&swrm->wakeup_work);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	swr_unregister_master(&swrm->master);
 	msm_aud_evt_unregister_client(&swrm->event_notifier);
-	device_init_wakeup(swrm->dev, false);
 	mutex_destroy(&swrm->mlock);
 	mutex_destroy(&swrm->reslock);
 	mutex_destroy(&swrm->iolock);
